@@ -11,15 +11,14 @@
 2. [Create an Environment and Cluster](#step-2)
 3. [Create Topics and walk through Confluent Cloud Dashboard](#step-3)
 4. [Create Datagen Connectors for Customers and Credit Cards](#step-4)
-5. [Create a Producer for transactions topic](#step-5)
-6. [Clone the repository and configure the clients](#step-6)
-7. [Add data contract to transactions topic](#step-7)
-8. [Perform complex joins using Flink to combine the records into one topic](#step-8)
-9. [Consume feature set topic and predict fraud transactions](#step-9)
-10. [Connect Flink with GoogleAI Model](#step-10)
-11. [Flink Monitoring](#step-11)
-12. [Clean Up Resources](#step-12)
-13. [Confluent Resources and Further Testing](#step-13)
+5. [Configure the clients](#step-5)
+6. [Create a Producer for transactions topic](#step-6)
+7. [Perform complex joins using Flink to combine the records into one topic](#step-7)
+8. [Consume feature set topic and predict fraud transactions](#step-8)
+9. [Connect Flink with GoogleAI Model](#step-9)
+10. [Flink Monitoring](#step-10)
+11. [Clean Up Resources](#step-11)
+12. [Confluent Resources and Further Testing](#step-12)
 ***
 
 ## **Prerequisites**
@@ -45,12 +44,9 @@
 
 4. Clone this repo:
    ```
-   git clone git@github.com:confluentinc/commercial-workshops.git
+   git clone https://github.com/ihengki17/workshop-fraud-detection-flink-gcp.git
    ```
-   or
-   ```
-   git clone https://github.com/confluentinc/commercial-workshops.git
-   ```
+   
 
 5. Install confluent cloud CLI based on your OS (https://docs.confluent.io/confluent-cli/current/install.html)
 
@@ -91,7 +87,7 @@ By the end of this workshop, you'll have a clear understanding of how to utilize
 
 ## <a name="step-2"></a>Create an Environment and Cluster
 
-An environment contains clusters and its deployed components such as Apache Flink, Connectors, ksqlDB, and Schema Registry. You have the ability to create different environments based on your company's requirements. For example, you can use environments to separate Development/Testing, Pre-Production, and Production clusters. 
+An environment contains clusters and its deployed components such as Apache Flink, Connectors, and Schema Registry. You have the ability to create different environments based on your company's requirements. For example, you can use environments to separate Development/Testing, Pre-Production, and Production clusters. 
 
 1. Click **+ Add Environment**. Specify an **Environment Name** and Click **Create**. 
 
@@ -124,50 +120,7 @@ An environment contains clusters and its deployed components such as Apache Flin
 
 ***
 
-## <a name="step-3"></a>Create a Flink Compute Pool
-
-1. On the navigation menu, select **Flink** and click **Create Compute Pool**.
-
-<div align="center" padding=25px>
-    <img src="images/create-flink-pool-1.png" width=50% height=50%>
-</div>
-
-2. Select **Region** and then **Continue**. (You have to use the region where the cluster was created in the previous step)
-<div align="center" padding=25px>
-    <img src="images/create-flink-pool-2.png" width=50% height=50%>
-</div>
-
-3. Name you Pool Name and set the capacity units (CFUs) to **5**. Click **Finish**.
-
-<div align="center" padding=25px>
-    <img src="images/create-flink-pool-3.png" width=50% height=50%>
-</div>
-
-> **Note:** The capacity of a compute pool is measured in CFUs. Compute pools expand and shrink automatically based on the resources required by the statements using them. A compute pool without any running statements scale down to zero. The maximum size of a compute pool is configured during creation. 
-
-4. Flink Compute pools will be ready shortly. You can click **Open SQL workspace** when the pool is ready to use.
-
-5. Change your workspace name by clicking **settings button**. Click **Save changes** after you update the workspace name.
-
-<div align="center" padding=25px>
-    <img src="images/flink-workspace-1.png" width=50% height=50%>
-</div>
-
-6. Set the Catalog as your environment name.
-
-<div align="center" padding=25px>
-    <img src="images/flink-workspace-2.png" width=50% height=50%>
-</div>
-
-7. Set the Database as your cluster name.
-
-<div align="center" padding=25px>
-    <img src="images/flink-workspace-3.png" width=50% height=50%>
-</div>
-
-***
-
-## <a name="step-4"></a>Creates Topic and Walk Through Cloud Dashboard
+## <a name="step-3"></a>Creates Topic and Walk Through Cloud Dashboard
 
 1. On the navigation menu, you will see **Cluster Overview**. 
 
@@ -189,7 +142,7 @@ An environment contains clusters and its deployed components such as Apache Flin
 
 ***
 
-## <a name="step-5"></a>Create Datagen Connectors for Customers and Credit Cards
+## <a name="step-4"></a>Create Datagen Connectors for Customers and Credit Cards
 The next step is to produce sample data using the Datagen Source connector. You will create two Datagen Source connectors. One connector will send sample customer data to **customers** topic, the other connector will send sample credit card data to **credit_cards** topic.
 
 1. First, you will create the connector that will send data to **customers**. From the Confluent Cloud UI, click on the **Connectors** tab on the navigation menu. Click on the **Datagen Source** icon.
@@ -342,7 +295,7 @@ The next step is to produce sample data using the Datagen Source connector. You 
 * You should now be able to see the messages within the UI. You can view the specific messages by clicking the icon.
 ***
 
-## <a name="step-6"></a>Configure the clients.
+## <a name="step-5"></a>Configure the clients.
 The next step is to run the producer to produce transaction records to the **transactions** topic.
 
 1. Open VS Code or any editor of your choice and open the github repository folder and run the following command
@@ -360,7 +313,7 @@ pip3 install -r requirements.txt
 ```
 5. Create a ```client.properties``` and ```schema.properties``` files in the current folder. Let these be empty now we'll paste the configurations in the next step.
 
-## <a name="step-7"></a>Create a Python Client for transactions topic
+## <a name="step-6"></a>Create a Python Client for transactions topic
 The next step is to produce sample data using a client. You will configure a python client for **transactions** topic.
 
 1. From the Confluent Cloud UI, click on the **Clients** tab on the navigation menu. Click on the **Add new client** button on the top right.
@@ -427,7 +380,7 @@ You can see records being published to transactions topic.
 > * Click on the *Cluster Overiview*, go to *Cluster Settings*,. Double check there are no extra spaces at the beginning or end of the key and secret that you may have accidentally copied and pasted in ```client.properties``` file also verify the ```bootstrap.servers``` value by comparing it with the *Bootstrap Server* value in the Endpoints section in UI. Also verify the ```schema.properties```
 
 
-## <a name="step-8"></a>Perform complex joins using Flink to combine the records into one topic
+## <a name="step-7"></a>Perform complex joins using Flink to combine the records into one topic
 Kafka topics and schemas are always in sync with our Flink cluster. Any topic created in Kafka is visible directly as a table in Flink, and any table created in Flink is visible as a topic in Kafka. Effectively, Flink provides a SQL interface on top of Confluent Cloud.
 
 1. From the Confluent Cloud UI, click on the **Environments** tab on the navigation menu. Choose your environment.
@@ -523,7 +476,7 @@ b. [Hop Windows](https://docs.confluent.io/cloud/current/flink/reference/queries
 c. [Cumulate Windows](https://docs.confluent.io/cloud/current/flink/reference/queries/window-tvf.html#flink-sql-window-tvfs-cumulate)
 <br> 
 
-## <a name="step-9"></a>Consume feature set topic and predict fraud transactions
+## <a name="step-8"></a>Consume feature set topic and predict fraud transactions
 The next step is to create a consumer for feature set topic and predict the fraudulent transaction.
 
 1. Update ```client.properties``` file with an additional configuration at the end of the file like following.
@@ -552,9 +505,9 @@ SELECT details FROM fraudulent_transactions
     <img src="images/fraud_transactions.png" width=75% height=75%>
 </div>
 
-## <a name="step-10"></a>Connect Flink with GoogleAI Model (LLM Inference)
+## <a name="step-9"></a>Connect Flink with GoogleAI Model (LLM Inference)
 
-### 10.1 Prepare LLM Access (Google AI)
+### 9.1 Prepare LLM Access (Google AI)
 You have two options:
 
 - **Option A (Lab sample):**
@@ -568,7 +521,7 @@ You have two options:
 
 > **Security Tip:** Treat API keys as secrets. Prefer environment variables or secret managers in real projects.
 
-### 10.2 Create Model Connection via Confluent UI
+### 9.2 Create Model Connection via Confluent UI
 1. Login to Confluent:
    ```bash
    confluent login
@@ -594,7 +547,7 @@ confluent flink connection create mining-connection --cloud AWS  --region ap-sou
 ```
 > Ensure the **endpoint** matches what you noted in 8.1.
 
-### 10.3 Create AI Model in Flink SQL
+### 9.3 Create AI Model in Flink SQL
 Create a model with inputs/outputs and a system prompt describing the decision logic.
 
 ```sql
@@ -633,7 +586,7 @@ WITH (
 
 ```
 
-### 10.4 Invoke the Model
+### 9.4 Invoke the Model
 Invoke the model against the joined feed and return the decision + reasoning.
 
 ```sql
@@ -654,7 +607,7 @@ LATERAL TABLE(ML_PREDICT('EquipmentAgentModel', CONCAT(
 
 ```
 
-## <a name="step-11"></a>Flink Monitoring
+## <a name="step-10"></a>Flink Monitoring
 1. Status of all the Flink Jobs is available under **Flink Statements** Tab.
    
 <div align="center">
@@ -671,7 +624,7 @@ LATERAL TABLE(ML_PREDICT('EquipmentAgentModel', CONCAT(
 
 ***
 
-## <a name="step-12"></a>Clean Up Resources
+## <a name="step-11"></a>Clean Up Resources
 
 Deleting the resources you created during this workshop will prevent you from incurring additional charges. 
 
@@ -696,7 +649,7 @@ Deleting the resources you created during this workshop will prevent you from in
 </div>
 *** 
 
-## <a name="step-13"></a>Confluent Resources and Further Testing
+## <a name="step-12"></a>Confluent Resources and Further Testing
 
 Here are some links to check out if you are interested in further testing:
 - [Confluent Cloud Documentation](https://docs.confluent.io/cloud/current/overview.html)
