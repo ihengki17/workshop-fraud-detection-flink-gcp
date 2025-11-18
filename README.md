@@ -560,26 +560,6 @@ OUTPUT (
 )
 WITH (
   'googleai.connection' = 'googleai-connection',
-
-  'googleai.system_prompt' = '
-  You are an equipment performance monitoring agent.  
-  Your task is to analyze aggregated equipment data and assess the current condition of the equipment.  
-
-  Consider the following factors:
-  - Average temperature (°C): high (>80) may indicate overheating.  
-  - Average vibration level: higher than 0.05 indicates potential mechanical issues.  
-  - Fuel efficiency (ore tons per fuel LPH): lower values indicate inefficiency.  
-  - Vibration alert count: frequent alerts signal a worsening condition.  
-
-  Provide an assessment in one of these categories: HEALTHY, WARNING, CRITICAL.  
-  Always include reasoning based on the metrics provided.  
-
-  Output format:
-  equipment_id : {id}  
-  assessment : {HEALTHY | WARNING | CRITICAL}  
-  reasoning : {short explanation}  
-  ',
-
   'provider' = 'googleai',
   'task' = 'text_generation'
 );
@@ -589,21 +569,9 @@ WITH (
 ### 9.4 Invoke the Model
 Invoke the model against the joined feed and return the decision + reasoning.
 
-```sql
-ALTER TABLE EquipmentPerformance SET ('changelog.mode' = 'append');
-
-```
 
 ```sql
-SELECT equipment_id, assessment
-FROM EquipmentPerformance,
-LATERAL TABLE(ML_PREDICT('EquipmentAgentModel', CONCAT(
-  'Equipment ID: ', CAST(equipment_id AS STRING),
-  ', Avg Temp: ', CAST(avg_temperature_c AS STRING),
-  ', Avg Vibration: ', CAST(avg_vibration_level AS STRING),
-  ', Fuel Efficiency: ', CAST(fuel_efficiency AS STRING),
-  ', Vibration Alerts: ', CAST(vibration_alert_count AS STRING)
-)));
+SELECT message FROM fraudulent_transactions, LATERAL TABLE(ML_PREDICT('NotificationEngine', details));
 
 ```
 
