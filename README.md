@@ -17,7 +17,7 @@
 8. [Add data contract to transactions topic](#step-8)
 9. [Perform complex joins using Flink to combine the records into one topic](#step-9)
 10. [Consume feature set topic and predict fraud transactions](#step-10)
-11. [Connect Flink with Bedrock Model](#step-11)
+11. [Connect Flink with GoogleAI Model](#step-11)
 12. [Flink Monitoring](#step-12)
 13. [Clean Up Resources](#step-13)
 14. [Confluent Resources and Further Testing](#step-14)
@@ -553,77 +553,107 @@ SELECT details FROM fraudulent_transactions
     <img src="images/fraud_transactions.png" width=75% height=75%>
 </div>
 
-## <a name="step-12"></a>Connect Flink with Bedrock Model
-The next step is to create a integrated model from AWS Bedrock with Flink on Confluent Cloud.
+## <a name="step-12"></a>Connect Flink with GoogleAI Model (LLM Inference)
 
-1. First, you will create the model connection using Confluent CLI. If you've never installed one, you could install it based on your OS (https://docs.confluent.io/confluent-cli/current/install.html) and login to confluent.
+### 12.1 Prepare LLM Access (Google AI)
+You have two options:
+
+- **Option A (Lab sample):**
+  - **API Key:** **`ask to your instructors`**
+  - **Gemini Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
+
+- **Option B (Use your own):**
+  1. Go to https://aistudio.google.com → **Get API Key** → create or copy your key.
+  2. Note the **API Endpoint** (the URL before `?key=GEMINI_API_KEY`), e.g.  
+     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`
+
+> **Security Tip:** Treat API keys as secrets. Prefer environment variables or secret managers in real projects.
+
+### 12.2 Create Model Connection via Confluent UI
+1. Login to Confluent:
+   ```bash
+   confluent login
+   ```
+2. Ensure you’re on the correct environment:
+   ```bash
+   confluent environment list
+   confluent environment use <env-id>
+   ```
+3. Create the **Flink connection** (replace placeholders with your values where needed):
+   ```bash
+   confluent flink connection create mining-connection --cloud AWS 
+   --region <your flink region id> --environment <your Confluent environment id>      
+   --type googleai      
+   --endpoint https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent      
+   --api-key <your Google AI API key>
+   ```
+
+4. Example:
 ```bash
-confluent login
+confluent flink connection create mining-connection --cloud AWS  --region ap-southeast-1 --environment env-jwnnxq --type googleai --endpoint https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent       --api-key AIzaSyBidz11vgKLz_1RMgtZ0FDG1x23SmrikgM
+
 ```
+> Ensure the **endpoint** matches what you noted in 8.1.
 
-2. Make sure you prepare your AWS API Key and Secret to create connection to the Bedrock. (Would be provided in the workshop)
+### 12.3 Create AI Model in Flink SQL
+Create a model with inputs/outputs and a system prompt describing the decision logic.
 
-3. Make sure you are using the right environment and right cluster to create the connection. Verify by performing the following.
-```bash
-confluent environment list
-confluent environment use <env-id>
-confluent kafka cluster list
-confluent kafka cluster use <cluster-id>
-```
-
-> **Note:** If you doesn't have any user you could check the step below to create user with full access to Bedrock and creating API key and secret. You could skip this step if you already have user and api key with full access to bedrock.
-
->Go to **AWS IAM>User** and create User
-<div align="center">
-    <img src="images/bedrock0-1.png" width=100% height=100%>
-</div>
-
->Create User with attach policies for Bedrock Full Access
-<div align="center">
-    <img src="images/bedrock0-2.png" width=100% height=100%>
-</div>
-
-<div align="center">
-    <img src="images/bedrock0-3.png" width=100% height=100%>
-</div>
-
->Create API Key by search your user that has been created and click on the "Create Access Key"
-<div align="center">
-    <img src="images/bedrock0-4.png" width=100% height=100%>
-</div>
-
-<div align="center">
-    <img src="images/bedrock-1.png" width=100% height=100%>
-</div>
-
-<div align="center">
-    <img src="images/bedrock-2.png" width=100% height=100%>
-</div>
-
-```bash
-confluent flink connection create my-connection --cloud aws --region us-east-1 --type bedrock --endpoint https://bedrock-runtime.us-east-1.amazonaws.com/model/meta.llama3-8b-instruct-v1:0/invoke --aws-access-key <API Key> --aws-secret-key <API Secret>
-```
-3. After creating connection, we need to create the model in Flink before we could invoke on our query.
 ```sql
 CREATE MODEL NotificationEngine
-INPUT (details STRING)
-OUTPUT (message STRING)
+INPUT (
+  `details` VARCHAR(2147483647)
+)
+OUTPUT (
+  `judgement` VARCHAR(2147483647)
+)
 WITH (
-  'task' = 'text_generation',
-  'provider' = 'bedrock',
-  'bedrock.connection' = 'my-connection'
+  'googleai.connection' = 'googleai-connection',
+
+  'googleai.system_prompt' = '
+  You are an equipment performance monitoring agent.  
+  Your task is to analyze aggregated equipment data and assess the current condition of the equipment.  
+
+  Consider the following factors:
+  - Average temperature (°C): high (>80) may indicate overheating.  
+  - Average vibration level: higher than 0.05 indicates potential mechanical issues.  
+  - Fuel efficiency (ore tons per fuel LPH): lower values indicate inefficiency.  
+  - Vibration alert count: frequent alerts signal a worsening condition.  
+
+  Provide an assessment in one of these categories: HEALTHY, WARNING, CRITICAL.  
+  Always include reasoning based on the metrics provided.  
+
+  Output format:
+  equipment_id : {id}  
+  assessment : {HEALTHY | WARNING | CRITICAL}  
+  reasoning : {short explanation}  
+  ',
+
+  'provider' = 'googleai',
+  'task' = 'text_generation'
 );
+
 ```
 
-5. Now let's invoke the model and get the results.
+### 12.4 Invoke the Model
+Invoke the model against the joined feed and return the decision + reasoning.
 
 ```sql
-SELECT message FROM fraudulent_transactions, LATERAL TABLE(ML_PREDICT('NotificationEngine', details));
+ALTER TABLE EquipmentPerformance SET ('changelog.mode' = 'append');
+
 ```
-<div align="center" padding=25px>
-    <img src="images/ai_messages.png" width=75% height=75%>
-</div>
-***
+
+```sql
+SELECT equipment_id, assessment
+FROM EquipmentPerformance,
+LATERAL TABLE(ML_PREDICT('EquipmentAgentModel', CONCAT(
+  'Equipment ID: ', CAST(equipment_id AS STRING),
+  ', Avg Temp: ', CAST(avg_temperature_c AS STRING),
+  ', Avg Vibration: ', CAST(avg_vibration_level AS STRING),
+  ', Fuel Efficiency: ', CAST(fuel_efficiency AS STRING),
+  ', Vibration Alerts: ', CAST(vibration_alert_count AS STRING)
+)));
+
+```
 
 ## <a name="step-13"></a>Flink Monitoring
 1. Status of all the Flink Jobs is available under **Flink Statements** Tab.
