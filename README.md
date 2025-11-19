@@ -522,30 +522,29 @@ You have two options:
 > **Security Tip:** Treat API keys as secrets. Prefer environment variables or secret managers in real projects.
 
 ### 9.2 Create Model Connection via Confluent UI
-1. Login to Confluent:
-   ```bash
-   confluent login
-   ```
-2. Ensure you’re on the correct environment:
-   ```bash
-   confluent environment list
-   confluent environment use <env-id>
-   ```
-3. Create the **Flink connection** (replace placeholders with your values where needed):
-   ```bash
-   confluent flink connection create mining-connection --cloud AWS 
-   --region <your flink region id> --environment <your Confluent environment id>      
-   --type googleai      
-   --endpoint https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent      
-   --api-key <your Google AI API key>
-   ```
+1. Go back to the environment page and click the **Integration** tab on the left side and click **+ Add Connection**
+    <div align="center" padding=25px>
+        <img src="images/ai-ui-1.png" width=75% height=75%>
+    </div>
+    
+    <div align="center" padding=25px>
+        <img src="images/ai-ui-2.png" width=75% height=75%>
+    </div>
+    
+2. Choose your LLM connection for your project
+   <div align="center" padding=25px>
+        <img src="images/ai-ui-3.png" width=75% height=75%>
+    </div>
+    
+3. Define your connection by set the ai endpoint and the key
+   <div align="center" padding=25px>
+        <img src="images/ai-ui-4.png" width=75% height=75%>
+    </div>
 
-4. Example:
-```bash
-confluent flink connection create mining-connection --cloud AWS  --region ap-southeast-1 --environment env-jwnnxq --type googleai --endpoint https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent       --api-key AIzaSyBidz11vgKLz_1RMgtZ0FDG1x23SmrikgM
-
-```
-> Ensure the **endpoint** matches what you noted in 8.1.
+4. On the last page change the connection name and set the cloud provider that your cluster belongs to, including the region
+    <div align="center" padding=25px>
+            <img src="images/ai-ui-5.png" width=75% height=75%>
+    </div>
 
 ### 9.3 Create AI Model in Flink SQL
 Create a model with inputs/outputs and a system prompt describing the decision logic.
