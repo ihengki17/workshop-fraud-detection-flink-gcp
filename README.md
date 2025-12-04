@@ -175,7 +175,7 @@ An environment contains clusters and its deployed components such as Apache Flin
 |------------------------------------|------------------------------------|------------------------------|
 | (1) Kafka credentials              | api key                            | [*from step 5* ](#step-5)    |
 | (1) Kafka credentials              | api secret                         | [*from step 5* ](#step-5)    |
-| (2) Authentication                 | database hostname                  | 34.101.213.158               |
+| (2) Authentication                 | database hostname                  | 34.101.142.174               |
 | (2) Authentication                 | database port                      | 5432                         |
 | (2) Authentication                 | database username                  | replica                      |
 | (2) Authentication                 | database password                  | [will be distributed]        |
@@ -194,7 +194,7 @@ An environment contains clusters and its deployed components such as Apache Flin
 | (3) Configuration                  | transform name                     | Topic_regexrouter            |
 | (3) Configuration                  | transform type                     | TopicRegexRouter             |
 | (3) Configuration                  | regex                              | ^[^.]+\.[^.]+\.(.*)$         |
-| (3) Configuration                  | replacement                        | [yourname]_$1                |
+| (3) Configuration                  | replacement                        | $1                           |
 | (4) Sizing                         | tasks                              | 1                            |
 | (5) Review and Launch              | connector name                     | PostgreSQL_CDC_Source        |
 </div>
@@ -279,7 +279,7 @@ The next step is to produce sample data using a client. You will configure a pyt
 5. Copy the configuration snippet shown in the screen and paste in ```client.properties``` file.
 ```bash
 # Required connection configs for Kafka producer, consumer, and admin
-bootstrap.servers=pkc-p11xm.us-east-1.aws.confluent.cloud:9092
+bootstrap.servers=lkc-xxxxxxxxxx:9092
 security.protocol=SASL_SSL
 sasl.mechanisms=PLAIN
 sasl.username=xxxxxxxxxxxx
@@ -302,7 +302,7 @@ client.id=ccloud-python-client-3b98b537-adba-4c2d-b36f-79f964f031c0
 9. Copy the endpoint of Stream Governance API and create a new credentials to access this by clicking on **Add Key**.
 10. Paste the endpoint and API Keys in ```schema.properties``` file like below:
 ```bash
-schema.registry.url=https://psrc-em25q.us-east-2.aws.confluent.cloud
+schema.registry.url=https://psrc-xxxxxxx.confluent.cloud
 schema.registry.username=xxxxxxxxxx
 schema.registry.password=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
@@ -325,9 +325,9 @@ Kafka topics and schemas are always in sync with our Flink cluster. Any topic cr
 4. Click on **Open SQL workspace** button on the top right.
 5. Create an **aggregated_transactions** table by running the following SQL query.
 ```sql
-CREATE TABLE aggregated_transactions (
+CREATE TABLE aggregated_transactions_telco (
     transaction_id INT NOT NULL PRIMARY KEY NOT ENFORCED,
-    credit_card_number BIGINT,
+    phone_number BIGINT,
     customer_email STRING,
     total_amount INT,
     average_spending_amount INT,
@@ -340,22 +340,22 @@ CREATE TABLE aggregated_transactions (
 
 6. Add a new query by clicking on + icon in the left of previous query to Insert records to the above table by running the following query.
 ```sql
-INSERT INTO aggregated_transactions
+INSERT INTO aggregated_transactions_telco
 SELECT 
     t.transaction_id,
-    t.credit_card_number,
+    t.phone_number,
     cust.customer_email,
     t.amount,
     cust.average_spending_amount,
     TO_TIMESTAMP(t.transaction_timestamp) AS transaction_timestamp
-FROM transactions t
-INNER JOIN <yourname>_credit_cards cc ON t.credit_card_number = cc.credit_card_number
-INNER JOIN <yourname>_customers cust ON cc.customer_id = cust.customer_id
+FROM transactions_telco t
+INNER JOIN `phone_number` pn ON t.phone_number = pn.phone_number
+INNER JOIN customers_telco cust ON pn.customer_id = cust.customer_id
 ```
 7. Now we will create a ```feature_set``` topic to put all the transactions in specific windows. To perform the same run the following query.
 ```sql
-CREATE TABLE feature_set (
-    credit_card_number BIGINT PRIMARY KEY NOT ENFORCED,
+CREATE TABLE feature_set_telco (
+    phone_number BIGINT PRIMARY KEY NOT ENFORCED,
     customer_email STRING,
     total_amount INT,
     transaction_count BIGINT,
@@ -369,22 +369,22 @@ CREATE TABLE feature_set (
 )
 ```
 ```sql
-INSERT INTO feature_set
+INSERT INTO feature_set_telco
   WITH windowed_transactions AS (
 SELECT 
-    credit_card_number,
+    phone_number,
     SUM(total_amount) AS total_amount,
     COUNT(transaction_id) AS transaction_count,
     window_start,
     window_end
 FROM 
   TABLE(
-    TUMBLE(TABLE aggregated_transactions, DESCRIPTOR(transaction_timestamp),INTERVAL '10' MINUTES)
+    TUMBLE(TABLE aggregated_transactions_telco, DESCRIPTOR(transaction_timestamp),INTERVAL '10' MINUTES)
   )
-GROUP BY credit_card_number, window_start,window_end
+GROUP BY phone_number, window_start,window_end
 )
 SELECT DISTINCT
-  t.credit_card_number,
+  t.phone_number,
   t.customer_email,
   wt.total_amount,
   wt.transaction_count,
@@ -392,11 +392,11 @@ SELECT DISTINCT
   wt.window_start,
   wt.window_end
  FROM 
-  aggregated_transactions t
+  aggregated_transactions_telco t
  JOIN
    windowed_transactions wt
  ON
-  wt.credit_card_number = t.credit_card_number
+  wt.phone_number = t.phone_number
  AND
   t.transaction_timestamp BETWEEN wt.window_start AND wt.window_end
 ```
@@ -417,8 +417,8 @@ c. [Cumulate Windows](https://docs.confluent.io/cloud/current/flink/reference/qu
 ### 9.1 Prepare Fraudulent transactions by rules
 
 ```sql
-CREATE TABLE `<yourname>_fraudulent_transactions` (
-    credit_card_number BIGINT PRIMARY KEY NOT ENFORCED,
+CREATE TABLE `next_best_offer` (
+    phone_number BIGINT PRIMARY KEY NOT ENFORCED,
     customer_email STRING,
     total_amount INT,
     transaction_count BIGINT,
@@ -432,7 +432,7 @@ CREATE TABLE `<yourname>_fraudulent_transactions` (
 )
 AS
 SELECT
-  credit_card_number,
+  phone_number,
   customer_email,
   total_amount,
   transaction_count,
@@ -440,7 +440,7 @@ SELECT
   window_start,
   window_end
  FROM 
-  <yourname>_feature_set
+  feature_set_telco
  WHERE `transaction_count`>=2 AND `total_amount`>`average_spending_amount`;
 ```
 
@@ -487,16 +487,32 @@ You have two options:
 Create a model with inputs/outputs and a system prompt describing the decision logic.
 
 ```sql
-CREATE MODEL fraud_notification
+CREATE MODEL next_best_offer_telco
 INPUT(message STRING)
-OUTPUT(notif STRING)
-COMMENT 'Analyze and determine suspicious transaction'
+OUTPUT(assessment STRING)
+COMMENT 'Analyze and determine what is the next best offer'
 WITH (
-'provider' = 'bedrock',
+'provider' = 'googleai',
 'task' = 'text_generation',
-'bedrock.connection'='bedrock-claude-connection',
-'bedrock.PARAMS.max_tokens' = '2000',
-'bedrock.system_prompt' = 'You’re a fraud analyst on bank syariah with that will check suspicious transaction, you need to analyst and give a proper reasoning why it is being set as fraudulent transactions and create a body message notification to the customers, create the message in proper language as formal notification but not reduce the urgency to act based on what you have analyst on the information that you get.'
+'googleai.connection'='googleai-connection',
+'googleai.PARAMS.max_tokens' = '500',
+'googleai.system_prompt' = 'You’re a next best offer agent that work on telco company.
+  You gonna analyst every pre-aggregated transactions and if they consume the data based on total_amount data more than the average_spending_amount, then we gonna give them the next best offer to them.
+  You will have the sentiment or interest for the customers in the future, but at the moment the data only from transactions only, be ready if the data is already there.
+
+  Things to consider:
+  - How much the data that has been overused then the average_spending_amount
+  - How many times that this huge transactions is happening
+  - What the package that we need to offer for customer
+  - What is the best product that we will offer to them to increase our up-sell or cross-sell
+
+  Provide the name of product that we will offer based on their interest: Gaming, Shopping, Watching Videos, Mining
+  Always include the reason based on metrics you have assess.
+
+  Output format:  
+  product : {HEALTHY | WARNING | CRITICAL}  
+  reasoning : {short explanation}  
+'
 );
 ```
 
@@ -504,24 +520,18 @@ WITH (
 Invoke the model against the joined feed and return the decision + reasoning.
 
 ```sql
-ALTER TABLE `<yourname>_fraudulent_transactions` SET ('changelog.mode' = 'append');
+ALTER TABLE next_best_offer SET ('changelog.mode' = 'append');
 ```
 
 ```sql
-SELECT f.`credit_card_number`, f.customer_email, notif
-FROM <yourname>_fraudulent_transactions f,
-LATERAL TABLE(ML_PREDICT('fraud_notification', CONCAT(
-  'You will analyze the input and check the suspicious transactions.\n\n',
-      'Instructions:\n',
-      '- Give the best reasoning based on your input and analysis',
-      'Input Data:\n',
-  'Credit card number: ', CAST(f.credit_card_number AS STRING), '\n',
-  'Customer email: ', f.customer_email, '\n',
-  'Total amount: ', CAST(f.total_amount AS STRING), '\n',
-  'Transaction count: ', CAST(f.transaction_count AS STRING), '\n',
-  'Average spending amount: ', CAST(f.average_spending_amount AS STRING), '\n',
-      'Expected Output – Notification message',
-      'Notification: \n\n<Body of Notification message>'
+SELECT phone_number, customer_email, assessment
+FROM `next_best_offer`,
+LATERAL TABLE(ML_PREDICT('next_best_offer_telco', CONCAT(
+  'Phone number: ', CAST(phone_number AS STRING), '\n',
+  'Customer email: ', customer_email, '\n',
+  'Total amount: ', CAST(total_amount AS STRING), '\n',
+  'Transaction count: ', CAST(transaction_count AS STRING), '\n',
+  'Average spending amount: ', CAST(average_spending_amount AS STRING)
 )));
 ```
 
