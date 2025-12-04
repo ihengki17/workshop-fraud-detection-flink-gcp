@@ -510,7 +510,7 @@ WITH (
   Always include the reason based on metrics you have assess.
 
   Output format:  
-  product : {HEALTHY | WARNING | CRITICAL}  
+  product : {GAMING | SHOPPING | WATCHING VIDEOS | MINING}
   reasoning : {short explanation}  
 '
 );
